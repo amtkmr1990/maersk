@@ -1,0 +1,34 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+      "microlifestorageType": {
+          "value": "Standard_LRS"
+      },
+      "macrostorageType": {
+          "value": "Standard_LRS"
+      },
+      "webappName": {
+          "value": "AppVM"
+      },
+      "webappAdminUserName": {
+        "reference": {
+          "keyVault": {
+          "id": "/subscriptions/<SubscriptionID>/resourceGroups/mykeyvaultdeploymentrg/providers/Microsoft.KeyVault/vaults/<KeyVaultName>"
+          },
+          "secretName": "<vmAdminuser>"
+      }
+      },
+      "webappAdminPassword": {
+        "reference": {
+          "keyVault": {
+          "id": "/subscriptions/<SubscriptionID>/resourceGroups/mykeyvaultdeploymentrg/providers/Microsoft.KeyVault/vaults/<KeyVaultName>"
+          },
+          "secretName": "<vmAdminPassword>"
+      }
+      },
+      "webappWindowsOSVersion": {
+          "value": "2012-R2-Datacenter"
+      }
+  }
+}

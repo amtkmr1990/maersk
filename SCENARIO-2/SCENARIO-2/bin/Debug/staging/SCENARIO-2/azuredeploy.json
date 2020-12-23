@@ -1,0 +1,183 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "microlifestorageType": {
+      "type": "string",
+      "defaultValue": "Standard_LRS",
+      "allowedValues": [
+        "Standard_LRS",
+        "Standard_ZRS",
+        "Standard_GRS",
+        "Standard_RAGRS",
+        "Premium_LRS"
+      ]
+    },
+    "macrostorageType": {
+      "type": "string",
+      "defaultValue": "Standard_LRS",
+      "allowedValues": [
+        "Standard_LRS",
+        "Standard_ZRS",
+        "Standard_GRS",
+        "Standard_RAGRS",
+        "Premium_LRS"
+      ]
+    },
+    "webappName": {
+      "type": "string",
+      "minLength": 1
+    },
+    "webappAdminUserName": {
+      "type": "string",
+      "minLength": 1
+    },
+    "webappAdminPassword": {
+      "type": "securestring"
+    },
+    "webappWindowsOSVersion": {
+      "type": "string",
+      "defaultValue": "2012-R2-Datacenter",
+      "allowedValues": [
+        "2008-R2-SP1",
+        "2012-Datacenter",
+        "2012-R2-Datacenter",
+        "Windows-Server-Technical-Preview"
+      ]
+    }},
+  "variables": {
+    "microlifestorageName": "[concat('microlifestorage', uniqueString(resourceGroup().id))]",
+    "macrostorageName": "[concat('macrostorage', uniqueString(resourceGroup().id))]",
+    "macroappvnetPrefix": "10.0.0.0/16",
+    "macroappvnetSubnet1Name": "Subnet-1",
+    "macroappvnetSubnet1Prefix": "10.0.0.0/24",
+    "macroappvnetSubnet2Name": "Subnet-2",
+    "macroappvnetSubnet2Prefix": "10.0.1.0/24",
+    "webappImagePublisher": "MicrosoftWindowsServer",
+    "webappImageOffer": "WindowsServer",
+    "webappOSDiskName": "webappOSDisk",
+    "webappVmSize": "Standard_D2_v2",
+    "webappVnetID": "[resourceId('Microsoft.Network/virtualNetworks', 'macroappvnet')]",
+    "webappSubnetRef": "[concat(variables('webappVnetID'), '/subnets/', variables('macroappvnetSubnet1Name'))]",
+    "webappStorageAccountContainerName": "vhds",
+    "webappNicName": "[concat(parameters('webappName'), 'NetworkInterface')]"},
+  "resources": [
+    {
+      "name": "[variables('macrostorageName')]",
+      "type": "Microsoft.Storage/storageAccounts",
+      "location": "[resourceGroup().location]",
+      "apiVersion": "2016-01-01",
+      "sku": {
+        "name": "[parameters('macrostorageType')]"
+      },
+      "dependsOn": [ ],
+      "tags": {
+        "displayName": "macrostorage"
+      },
+      "kind": "Storage"
+    },
+    {
+      "name": "macroappvnet",
+      "type": "Microsoft.Network/virtualNetworks",
+      "location": "[resourceGroup().location]",
+      "apiVersion": "2016-03-30",
+      "dependsOn": [ ],
+      "tags": {
+        "displayName": "macroappvnet"
+      },
+      "properties": {
+        "addressSpace": {
+          "addressPrefixes": [
+            "[variables('macroappvnetPrefix')]"
+          ]
+        },
+        "subnets": [
+          {
+            "name": "[variables('macroappvnetSubnet1Name')]",
+            "properties": {
+              "addressPrefix": "[variables('macroappvnetSubnet1Prefix')]"
+            }
+          },
+          {
+            "name": "[variables('macroappvnetSubnet2Name')]",
+            "properties": {
+              "addressPrefix": "[variables('macroappvnetSubnet2Prefix')]"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "[variables('webappNicName')]",
+      "type": "Microsoft.Network/networkInterfaces",
+      "location": "[resourceGroup().location]",
+      "apiVersion": "2016-03-30",
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/virtualNetworks', 'macroappvnet')]"
+      ],
+      "tags": {
+        "displayName": "webappNic"
+      },
+      "properties": {
+        "ipConfigurations": [
+          {
+            "name": "ipconfig1",
+            "properties": {
+              "privateIPAllocationMethod": "Dynamic",
+              "subnet": {
+                "id": "[variables('webappSubnetRef')]"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "[parameters('webappName')]",
+      "type": "Microsoft.Compute/virtualMachines",
+      "location": "[resourceGroup().location]",
+      "apiVersion": "2015-06-15",
+      "dependsOn": [
+        "[resourceId('Microsoft.Storage/storageAccounts', variables('macrostorageName'))]",
+        "[resourceId('Microsoft.Network/networkInterfaces', variables('webappNicName'))]"
+      ],
+      "tags": {
+        "displayName": "webapp"
+      },
+      "properties": {
+        "hardwareProfile": {
+          "vmSize": "[variables('webappVmSize')]"
+        },
+        "osProfile": {
+          "computerName": "[parameters('webappName')]",
+          "adminUsername": "[parameters('webappAdminUsername')]",
+          "adminPassword": "[parameters('webappAdminPassword')]"
+        },
+        "storageProfile": {
+          "imageReference": {
+            "publisher": "[variables('webappImagePublisher')]",
+            "offer": "[variables('webappImageOffer')]",
+            "sku": "[parameters('webappWindowsOSVersion')]",
+            "version": "latest"
+          },
+          "osDisk": {
+            "name": "webappOSDisk",
+            "vhd": {
+              "uri": "[concat(reference(resourceId('Microsoft.Storage/storageAccounts', variables('macrostorageName')), '2016-01-01').primaryEndpoints.blob, variables('webappStorageAccountContainerName'), '/', variables('webappOSDiskName'), '.vhd')]"
+            },
+            "caching": "ReadWrite",
+            "createOption": "FromImage"
+          }
+        },
+        "networkProfile": {
+          "networkInterfaces": [
+            {
+              "id": "[resourceId('Microsoft.Network/networkInterfaces', variables('webappNicName'))]"
+            }
+          ]
+        }
+      }
+    }
+    ],
+  "outputs": {}
+}
